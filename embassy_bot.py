@@ -7,42 +7,72 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 
+# ==================================================================
+# Telegram Config (from Railway Variables)
+# ==================================================================
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 CHAT_ID   = os.environ.get("CHAT_ID")
 
+# ==================================================================
+# User Data
+# ==================================================================
 USER_DATA = {
-    "Nachname": "SHABARA", "Vorname": "AMMAR", "Geburtsdatum": "06.01.1999",
-    "Reisepass": "A04299704", "Tel": "01555227126", "Email": "amarshabara57@gmail.com"
+    "Nachname": "SHABARA", 
+    "Vorname": "AMMAR", 
+    "Geburtsdatum": "06.01.1999",
+    "Reisepass": "A04299704", 
+    "Tel": "01555227126", 
+    "Email": "amarshabara57@gmail.com"
 }
 
+# ==================================================================
+# Telegram Notification
+# ==================================================================
 def send_telegram_message(text):
     if not BOT_TOKEN or not CHAT_ID:
         print("❌ CRITICAL: BOT_TOKEN or CHAT_ID not set")
         return
     try:
-        requests.post(f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
-                      data={"chat_id": CHAT_ID, "text": text}, timeout=10)
+        requests.post(
+            f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
+            data={"chat_id": CHAT_ID, "text": text}, timeout=10
+        )
         print(f"✅ Telegram: {text[:60]}...")
     except Exception as e:
         print("❌ Telegram error:", e)
 
+# ==================================================================
+# Selenium Driver (Optimized for Railway)
+# ==================================================================
 def create_driver():
     options = Options()
-    # new headless مناسب لـ Chromium الحديث
+    # Headless & safe flags
     options.add_argument("--headless=new")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
+
+    # Reduce memory usage
     options.add_argument("--disable-gpu")
+    options.add_argument("--disable-extensions")
+    options.add_argument("--disable-infobars")
+    options.add_argument("--single-process")
     options.add_argument("--window-size=1920,1080")
 
-    # حدد مسار الكروميوم حسب ديبيان/سليم
+    # Force user agent
+    options.add_argument(
+        "user-agent=Mozilla/5.0 (X11; Linux x86_64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/99.0.4844.51 Safari/537.36"
+    )
+
+    # Chromium binary location
     for path in ("/usr/bin/chromium", "/usr/bin/chromium-browser", "/usr/bin/google-chrome"):
         if os.path.exists(path):
             options.binary_location = path
             print(f"ℹ️ Using Chromium at: {path}")
             break
 
-    # حدد مسار chromedriver
+    # Chromedriver path
     driver_path = None
     for path in ("/usr/bin/chromedriver", "/usr/lib/chromium/chromedriver", "/usr/local/bin/chromedriver"):
         if os.path.exists(path):
@@ -52,13 +82,14 @@ def create_driver():
 
     if driver_path:
         service = Service(driver_path)
-        driver = webdriver.Chrome(service=service, options=options)
+        return webdriver.Chrome(service=service, options=options)
     else:
-        # fallback لسيلينيوم مانجر (لو متاح)
-        print("⚠️ Chromedriver path not found, trying Selenium Manager…")
-        driver = webdriver.Chrome(options=options)
-    return driver
+        print("⚠️ Chromedriver path not found, using Selenium Manager…")
+        return webdriver.Chrome(options=options)
 
+# ==================================================================
+# Booking Attempt
+# ==================================================================
 def attempt_to_book(driver):
     try:
         print("🚀 Attempting to book...")
@@ -68,7 +99,10 @@ def attempt_to_book(driver):
         available_slot.click()
 
         print("📝 Filling personal data...")
-        WebDriverWait(driver, 30).until(EC.presence_of_element_located((By.NAME, "Nachname"))).send_keys(USER_DATA["Nachname"])
+        WebDriverWait(driver, 30).until(
+            EC.presence_of_element_located((By.NAME, "Nachname"))
+        ).send_keys(USER_DATA["Nachname"])
+
         driver.find_element(By.NAME, "Vorname").send_keys(USER_DATA["Vorname"])
         driver.find_element(By.NAME, "Geburtsdatum").send_keys(USER_DATA["Geburtsdatum"])
         driver.find_element(By.NAME, "Reisepass").send_keys(USER_DATA["Reisepass"])
@@ -84,6 +118,9 @@ def attempt_to_book(driver):
         send_telegram_message(f"❌ Auto-booking failed: {e}")
         return False
 
+# ==================================================================
+# Check Appointments Once
+# ==================================================================
 def check_appointments_once():
     driver = create_driver()
     booked = False
@@ -91,14 +128,22 @@ def check_appointments_once():
         print("🌐 Navigating...")
         driver.get("https://appointment.bmeia.gv.at/")
 
-        Select(WebDriverWait(driver, 30).until(EC.presence_of_element_located((By.ID, "Office")))).select_by_visible_text("KAIRO")
+        Select(WebDriverWait(driver, 30).until(
+            EC.presence_of_element_located((By.ID, "Office"))
+        )).select_by_visible_text("KAIRO")
         driver.find_element(By.XPATH, "//input[@type='submit']").click()
 
-        Select(WebDriverWait(driver, 30).until(EC.presence_of_element_located((By.ID, "CalendarId")))).select_by_visible_text("Aufenthaltsbewilligung Student (nur Bachelor)")
+        Select(WebDriverWait(driver, 30).until(
+            EC.presence_of_element_located((By.ID, "CalendarId"))
+        )).select_by_visible_text("Aufenthaltsbewilligung Student (nur Bachelor)")
         driver.find_element(By.XPATH, "//input[@type='submit']").click()
 
-        WebDriverWait(driver, 30).until(EC.element_to_be_clickable((By.XPATH, "//input[@type='submit' and @value='Next']"))).click()
-        WebDriverWait(driver, 30).until(EC.element_to_be_clickable((By.XPATH, "//input[@type='submit' and @value='Next']"))).click()
+        WebDriverWait(driver, 30).until(
+            EC.element_to_be_clickable((By.XPATH, "//input[@type='submit' and @value='Next']"))
+        ).click()
+        WebDriverWait(driver, 30).until(
+            EC.element_to_be_clickable((By.XPATH, "//input[@type='submit' and @value='Next']"))
+        ).click()
 
         print("🔍 Checking appointments page...")
         time.sleep(2)
@@ -114,6 +159,9 @@ def check_appointments_once():
             driver.quit()
     return booked
 
+# ==================================================================
+# Main Loop
+# ==================================================================
 def main():
     send_telegram_message("🚀 Debugging bot started successfully.")
     while True:
@@ -128,5 +176,12 @@ def main():
         time.sleep(wait_time)
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception:
+        error = traceback.format_exc()
+        print("❌ CRITICAL ERROR:", error)
+        send_telegram_message(f"❌ Bot crashed:\n\n{error}")
+        time.sleep(10)
+
 
