@@ -1,22 +1,4 @@
-# -*- coding: utf-8 -*-
-import time
-# import requests
-# from selenium import webdriver
-# from selenium.webdriver.common.by import By
-# from selenium.webdriver.support.ui import Select, WebDriverWait
-# from selenium.webdriver.support import expected_conditions as EC
-
-# # ==============================================================================
-# # بيانات التليجرام (تأكد من صحتها)
-# # ==============================================================================
-# # استخدم التوكن والـ ID الخاصين بك
-# BOT_TOKEN = "8494526180:AAExdDSIm3x6E-jSPbLeZfVjzvOHWCmXOmc"
-# CHAT_ID = "5946798369"
-
-# ==============================================================================
-# بياناتك الشخصية (تأكد من صحتها)
-# ==============================================================================
-# -*- coding: utf-8 -*-
+import os
 import time
 import requests
 from selenium import webdriver
@@ -26,10 +8,10 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.options import Options
 
 # ==============================================================================
-# بيانات التليجرام
+# بيانات التليجرام (يتم قراءتها من متغيرات البيئة)
 # ==============================================================================
-BOT_TOKEN = "8494526180:AAExdDSIm3x6E-jSPbLeZfVjzvOHWCmXOmc"
-CHAT_ID = "5946798369"
+BOT_TOKEN = os.environ.get("8494526180:AAExdDSIm3x6E-jSPbLeZfVjzvOHWCmXOmc")
+CHAT_ID = os.environ.get("5946798369")
 
 # ==============================================================================
 # بياناتك الشخصية
@@ -43,24 +25,25 @@ USER_DATA = {
     "Email": "amarshabara57@gmail.com"
 }
 
-
 # ------------------------------------------------------------------------------
 # Selenium Driver (Headless)
 # ------------------------------------------------------------------------------
 def create_driver():
     options = Options()
-    options.add_argument("--headless")  
+    options.add_argument("--headless")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--disable-gpu")
     options.add_argument("--window-size=1920,1080")
     return webdriver.Chrome(options=options)
 
-
 # ------------------------------------------------------------------------------
 # Telegram notification
 # ------------------------------------------------------------------------------
 def send_telegram_message(text):
+    if not BOT_TOKEN or not CHAT_ID:
+        print("❌ لم يتم العثور على متغيرات التليجرام (BOT_TOKEN, CHAT_ID)")
+        return
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
     data = {"chat_id": CHAT_ID, "text": text}
     try:
@@ -69,6 +52,7 @@ def send_telegram_message(text):
     except Exception as e:
         print(f"❌ مشكلة في إرسال رسالة التليجرام: {e}")
 
+# ... (The rest of your code remains exactly the same) ...
 
 # ------------------------------------------------------------------------------
 # محاولة الحجز
@@ -92,11 +76,11 @@ def attempt_to_book(driver):
         driver.find_element(By.NAME, "Email").send_keys(USER_DATA["Email"])
 
         print("✅ تم إدخال البيانات بنجاح.")
+        # Note: The "go to browser window" message is less relevant for a server
+        # but is kept for consistency.
         send_telegram_message(
             "🎉 تم العثور على موعد وملء بياناتك بنجاح 🎉\n"
-            "الخطوة الأخيرة عليك الآن!\n"
-            "اذهب إلى نافذة المتصفح المفتوحة، قم بحل الكابتشا (التحقق الأمني) واضغط على إرسال لإتمام الحجز.\n"
-            "لديك 5 دقائق."
+            "يرجى حل الكابتشا يدويًا إذا لزم الأمر لإتمام الحجز."
         )
         time.sleep(300)
         return True
@@ -106,28 +90,23 @@ def attempt_to_book(driver):
         send_telegram_message("❌ فشل الحجز التلقائي. يرجى المحاولة يدويًا بسرعة!")
         return False
 
-
 # ------------------------------------------------------------------------------
 # فحص المواعيد
 # ------------------------------------------------------------------------------
 def check_appointments_once():
     driver = create_driver()
-    driver.maximize_window()
     appointment_booked = False
     
     try:
         print("🌐 جارٍ فتح الموقع والتنقل بين الصفحات...")
         driver.get("https://appointment.bmeia.gv.at/")
 
-        # الخطوة 1: اختيار المكتب (KAIRO)
         Select(WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.ID, "Office")))).select_by_visible_text("KAIRO")
         driver.find_element(By.XPATH, "//input[@type='submit']").click()
         
-        # الخطوة 2: اختيار نوع التأشيرة
         Select(WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.ID, "CalendarId")))).select_by_visible_text("Aufenthaltsbewilligung Student (nur Bachelor)")
         driver.find_element(By.XPATH, "//input[@type='submit']").click()
         
-        # الخطوة 3 و 4
         WebDriverWait(driver, 15).until(EC.element_to_be_clickable((By.XPATH, "//input[@type='submit' and @value='Next']"))).click()
         WebDriverWait(driver, 15).until(EC.element_to_be_clickable((By.XPATH, "//input[@type='submit' and @value='Next']"))).click()
         
@@ -148,7 +127,6 @@ def check_appointments_once():
         if not appointment_booked:
             driver.quit()
     return appointment_booked
-
 
 # ------------------------------------------------------------------------------
 # الحلقة الرئيسية
