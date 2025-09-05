@@ -10,8 +10,8 @@ from selenium.webdriver.chrome.options import Options
 # ==============================================================================
 # بيانات التليجرام (من متغيرات البيئة)
 # ==============================================================================
-BOT_TOKEN = os.environ.get("BOT_TOKEN")
-CHAT_ID = os.environ.get("CHAT_ID")
+BOT_TOKEN = os.environ.get("8494526180:AAExdDSIm3x6E-jSPbLeZfVjzvOHWCmXOmc")
+CHAT_ID = os.environ.get("5946798369")
 
 # ==============================================================================
 # بياناتك الشخصية
