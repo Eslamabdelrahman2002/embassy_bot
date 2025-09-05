@@ -8,10 +8,10 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.options import Options
 
 # ==============================================================================
-# بيانات التليجرام (يتم قراءتها من متغيرات البيئة)
+# بيانات التليجرام (من متغيرات البيئة)
 # ==============================================================================
-BOT_TOKEN = os.environ.get("8494526180:AAExdDSIm3x6E-jSPbLeZfVjzvOHWCmXOmc")
-CHAT_ID = os.environ.get("5946798369")
+BOT_TOKEN = os.environ.get("BOT_TOKEN")
+CHAT_ID = os.environ.get("CHAT_ID")
 
 # ==============================================================================
 # بياناتك الشخصية
@@ -42,31 +42,29 @@ def create_driver():
 # ------------------------------------------------------------------------------
 def send_telegram_message(text):
     if not BOT_TOKEN or not CHAT_ID:
-        print("❌ لم يتم العثور على متغيرات التليجرام (BOT_TOKEN, CHAT_ID)")
+        print("❌ BOT_TOKEN أو CHAT_ID مش موجودين في متغيرات البيئة")
         return
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
     data = {"chat_id": CHAT_ID, "text": text}
     try:
         requests.post(url, data=data, timeout=10)
-        print(f"✅ تم إرسال إشعار تليجرام: '{text}'")
+        print(f"✅ Telegram: {text}")
     except Exception as e:
-        print(f"❌ مشكلة في إرسال رسالة التليجرام: {e}")
-
-# ... (The rest of your code remains exactly the same) ...
+        print(f"❌ Telegram Error: {e}")
 
 # ------------------------------------------------------------------------------
 # محاولة الحجز
 # ------------------------------------------------------------------------------
 def attempt_to_book(driver):
     try:
-        print("🚀 جارٍ محاولة حجز أول موعد متاح...")
-        available_slot = WebDriverWait(driver, 10).until(
+        print("🚀 محاولة الحجز...")
+        available_slot = WebDriverWait(driver, 30).until(
             EC.presence_of_element_located((By.XPATH, "//a[contains(@href, 'Termin')]"))
         )
         available_slot.click()
-        
-        print("📝 جارٍ إدخال البيانات الشخصية...")
-        WebDriverWait(driver, 10).until(
+
+        print("📝 إدخال البيانات...")
+        WebDriverWait(driver, 30).until(
             EC.presence_of_element_located((By.NAME, "Nachname"))
         ).send_keys(USER_DATA["Nachname"])
         driver.find_element(By.NAME, "Vorname").send_keys(USER_DATA["Vorname"])
@@ -75,19 +73,17 @@ def attempt_to_book(driver):
         driver.find_element(By.NAME, "Tel").send_keys(USER_DATA["Tel"])
         driver.find_element(By.NAME, "Email").send_keys(USER_DATA["Email"])
 
-        print("✅ تم إدخال البيانات بنجاح.")
-        # Note: The "go to browser window" message is less relevant for a server
-        # but is kept for consistency.
+        print("✅ تم إدخال البيانات.")
         send_telegram_message(
-            "🎉 تم العثور على موعد وملء بياناتك بنجاح 🎉\n"
-            "يرجى حل الكابتشا يدويًا إذا لزم الأمر لإتمام الحجز."
+            "🎉 تم العثور على موعد وملء بياناتك 🎉\n"
+            "لو في كابتشا، لازم تتحل يدويًا."
         )
-        time.sleep(300)
+        time.sleep(300)  # بيديك وقت تحل الكابتشا
         return True
 
     except Exception as e:
-        print(f"❌ فشلت عملية الحجز التلقائي: {e}")
-        send_telegram_message("❌ فشل الحجز التلقائي. يرجى المحاولة يدويًا بسرعة!")
+        print(f"❌ فشل الحجز: {e}")
+        send_telegram_message(f"❌ فشل الحجز: {e}")
         return False
 
 # ------------------------------------------------------------------------------
@@ -96,33 +92,41 @@ def attempt_to_book(driver):
 def check_appointments_once():
     driver = create_driver()
     appointment_booked = False
-    
+
     try:
-        print("🌐 جارٍ فتح الموقع والتنقل بين الصفحات...")
+        print("🌐 فتح الموقع...")
         driver.get("https://appointment.bmeia.gv.at/")
 
-        Select(WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.ID, "Office")))).select_by_visible_text("KAIRO")
+        Select(WebDriverWait(driver, 30).until(
+            EC.presence_of_element_located((By.ID, "Office"))
+        )).select_by_visible_text("KAIRO")
         driver.find_element(By.XPATH, "//input[@type='submit']").click()
-        
-        Select(WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.ID, "CalendarId")))).select_by_visible_text("Aufenthaltsbewilligung Student (nur Bachelor)")
+
+        Select(WebDriverWait(driver, 30).until(
+            EC.presence_of_element_located((By.ID, "CalendarId"))
+        )).select_by_visible_text("Aufenthaltsbewilligung Student (nur Bachelor)")
         driver.find_element(By.XPATH, "//input[@type='submit']").click()
-        
-        WebDriverWait(driver, 15).until(EC.element_to_be_clickable((By.XPATH, "//input[@type='submit' and @value='Next']"))).click()
-        WebDriverWait(driver, 15).until(EC.element_to_be_clickable((By.XPATH, "//input[@type='submit' and @value='Next']"))).click()
-        
-        print("🔍 جارٍ فحص صفحة المواعيد...")
+
+        WebDriverWait(driver, 30).until(
+            EC.element_to_be_clickable((By.XPATH, "//input[@type='submit' and @value='Next']"))
+        ).click()
+        WebDriverWait(driver, 30).until(
+            EC.element_to_be_clickable((By.XPATH, "//input[@type='submit' and @value='Next']"))
+        ).click()
+
+        print("🔍 فحص المواعيد...")
         time.sleep(2)
 
         if "no appointments available" in driver.page_source.lower():
-            print("--- ⚠️ لا يوجد مواعيد متاحة حاليًا ---")
+            print("⚠️ لا يوجد مواعيد.")
         else:
-            print("🎉🎉🎉 تم العثور على موعد متاح! 🎉🎉🎉")
-            send_telegram_message("🎉 تم العثور على موعد! جارٍ محاولة الحجز تلقائيًا...")
+            print("🎉 موعد متاح!")
+            send_telegram_message("🎉 موعد متاح! محاولة الحجز...")
             appointment_booked = attempt_to_book(driver)
 
     except Exception as e:
-        print(f"❌ حدث خطأ غير متوقع: {e}")
-        send_telegram_message("❌ حدث خطأ في البوت. قد يكون الموقع تغير أو هناك مشكلة في الاتصال.")
+        print(f"❌ خطأ: {e}")
+        send_telegram_message(f"❌ خطأ في البوت: {e}")
     finally:
         if not appointment_booked:
             driver.quit()
@@ -132,16 +136,16 @@ def check_appointments_once():
 # الحلقة الرئيسية
 # ------------------------------------------------------------------------------
 if __name__ == "__main__":
-    send_telegram_message("🚀 تم تشغيل بوت حجز المواعيد بنجاح.")
+    send_telegram_message("🚀 تم تشغيل البوت.")
     while True:
-        print("\n" + "="*50)
-        print("🔍 بدء دورة فحص جديدة...")
+        print("=" * 50)
+        print("🔍 بدء دورة فحص...")
         found_and_booked = check_appointments_once()
         if found_and_booked:
-            print("✅ تمت محاولة الحجز بنجاح. سيتم إيقاف البوت الآن.")
-            send_telegram_message("✅ تم إيقاف البوت بعد محاولة الحجز.")
+            print("✅ تم الحجز. إيقاف البوت.")
+            send_telegram_message("✅ البوت توقف بعد محاولة الحجز.")
             break
-        
+
         wait_time = 300
-        print(f"⏳ لا يوجد مواعيد. سيتم إعادة المحاولة بعد {wait_time/60:.0f} دقائق...")
+        print(f"⏳ لا يوجد مواعيد. المحاولة بعد {wait_time/60:.0f} دقائق...")
         time.sleep(wait_time)
